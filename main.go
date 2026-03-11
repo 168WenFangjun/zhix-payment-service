@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"time"
 	"payment-service/config"
 	"payment-service/middleware"
 	"payment-service/routes"
@@ -12,37 +14,47 @@ import (
 )
 
 func init() {
-	// 在所有其他init之前加载.env
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found")
-	}
-	if secret := os.Getenv("JWT_SECRET"); secret != "" {
-		log.Println("[Payment Service] JWT_SECRET loaded:", secret)
-	} else {
-		log.Println("[Payment Service] WARNING: JWT_SECRET not set!")
-	}
+	godotenv.Load()
 }
 
 func main() {
-	// 初始化JWT
 	middleware.InitJWT()
-	
 	config.InitDB()
 
-	r := gin.Default()
+	if os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	r := gin.New()
+	r.Use(gin.Recovery())
 	r.Use(corsMiddleware())
 
 	routes.SetupRoutes(r)
 
+	srv := &http.Server{
+		Addr:         ":8081",
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 	log.Println("Payment Service starting on :8081")
-	r.Run(":8081")
+	log.Fatal(srv.ListenAndServe())
 }
 
 func corsMiddleware() gin.HandlerFunc {
+	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+	if allowedOrigin == "" {
+		allowedOrigin = "http://localhost:3000"
+	}
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := c.GetHeader("Origin")
+		if origin == allowedOrigin {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Max-Age", "86400")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return

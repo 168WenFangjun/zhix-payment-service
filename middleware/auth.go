@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -13,59 +13,41 @@ import (
 var JWTSecret []byte
 
 func InitJWT() {
-	if secret := os.Getenv("JWT_SECRET"); secret != "" {
-		JWTSecret = []byte(secret)
-		fmt.Println("[Payment Service] JWT_SECRET initialized:", secret)
-	} else {
-		JWTSecret = []byte("your-dev-secret-key")
-		fmt.Println("[Payment Service] Using default JWT_SECRET")
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		log.Fatal("[Payment Service] JWT_SECRET environment variable is required")
 	}
+	JWTSecret = []byte(secret)
 }
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			fmt.Println("[Auth] No authorization header")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
 			c.Abort()
 			return
 		}
-
-		tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
-		fmt.Println("[Auth] Token received:", tokenString[:20]+"...")
-
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
 			return JWTSecret, nil
 		})
-
-		if err != nil {
-			fmt.Println("[Auth] Token parse error:", err)
+		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
 			return
 		}
-
-		if !token.Valid {
-			fmt.Println("[Auth] Token is not valid")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
-			return
-		}
-
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			if userId, exists := claims["userId"]; exists {
 				c.Set("userID", uint(userId.(float64)))
-				fmt.Println("[Auth] User authenticated:", uint(userId.(float64)))
-			} else if userId, exists := claims["user_id"]; exists {
-				c.Set("userID", uint(userId.(float64)))
-				fmt.Println("[Auth] User authenticated:", uint(userId.(float64)))
 			}
 			if email, exists := claims["email"]; exists {
 				c.Set("email", email.(string))
 			}
 		}
-
 		c.Next()
 	}
 }

@@ -86,14 +86,25 @@ go run main.go
 `.env` 配置：
 
 ```env
-DATABASE_URL=host=localhost user=postgres password=postgres dbname=zhix port=5432 sslmode=disable
-JWT_SECRET=your-secret-key
-BACKEND_URL=http://localhost:8080
+# 数据库（必须设置）
+DATABASE_URL=host=localhost user=<db_user> password=<db_password> dbname=zhix port=5432 sslmode=disable TimeZone=Asia/Shanghai
+
+# JWT 密钥（必须与 backend 完全相同）
+JWT_SECRET=<same_as_backend_JWT_SECRET>
+
+# CORS 允许的前端域名
+ALLOWED_ORIGIN=http://localhost:3000
+
+# 运行模式（生产环境设为 release）
+GIN_MODE=debug
+
+# Apple Pay 配置
 APPLE_MERCHANT_ID=merchant.com.zhix.club
 APPLE_PAY_CERT_PATH=/path/to/merchant_id.pem
 APPLE_PAY_KEY_PATH=/path/to/merchant_id.key
-APPLE_PAY_PROCESSING_CERT_PATH=/path/to/apple-pay-cert.pem
 ```
+
+> ❗️ `JWT_SECRET` 必须与 backend 服务保持一致，否则支付请求会返回 `Invalid token`。
 
 > 启动后访问 → `http://localhost:8081`
 
@@ -203,14 +214,25 @@ go run main.go
 `.env` config:
 
 ```env
-DATABASE_URL=host=localhost user=postgres password=postgres dbname=zhix port=5432 sslmode=disable
-JWT_SECRET=your-secret-key
-BACKEND_URL=http://localhost:8080
+# Database (required)
+DATABASE_URL=host=localhost user=<db_user> password=<db_password> dbname=zhix port=5432 sslmode=disable TimeZone=Asia/Shanghai
+
+# JWT secret (must be identical to backend's JWT_SECRET)
+JWT_SECRET=<same_as_backend_JWT_SECRET>
+
+# CORS allowed origin
+ALLOWED_ORIGIN=http://localhost:3000
+
+# Run mode (set to release in production)
+GIN_MODE=debug
+
+# Apple Pay
 APPLE_MERCHANT_ID=merchant.com.zhix.club
 APPLE_PAY_CERT_PATH=/path/to/merchant_id.pem
 APPLE_PAY_KEY_PATH=/path/to/merchant_id.key
-APPLE_PAY_PROCESSING_CERT_PATH=/path/to/apple-pay-cert.pem
 ```
+
+> ⚠️ `JWT_SECRET` must be **identical** to the backend service. A mismatch will cause all payment requests to fail with `Invalid token`.
 
 > Runs at → `http://localhost:8081`
 

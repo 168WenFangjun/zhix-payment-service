@@ -1,11 +1,11 @@
 package controllers
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"payment-service/config"
@@ -165,12 +165,17 @@ func validateMerchant(validationURL string) (map[string]interface{}, error) {
 		"initiativeContext":  "zhix.club",
 	}
 
-	jsonData, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", validationURL, nil)
-	req.Body = io.NopCloser(nil)
-	req.ContentLength = int64(len(jsonData))
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("POST", validationURL, bytes.NewReader(jsonData))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -178,8 +183,9 @@ func validateMerchant(validationURL string) (map[string]interface{}, error) {
 	defer resp.Body.Close()
 
 	var session map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&session)
-
+	if err := json.NewDecoder(resp.Body).Decode(&session); err != nil {
+		return nil, err
+	}
 	return session, nil
 }
 
